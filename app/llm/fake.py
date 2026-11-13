@@ -12,9 +12,9 @@ Reply = Union[str, dict, list]
 # their own feature step defines the real schema.
 DEFAULT_REPLIES: dict[str, Reply] = {
     "classify": {"subsystem": "propulsion", "severity": "medium"},
-    "check_injection": {"flagged": False, "reason": ""},
-    "check_missing": {"flagged": False, "missing": []},
-    "check_panic": {"flagged": False, "reason": ""},
+    "check_injection": {"flag": False, "reason": "No instructions to the system found."},
+    "check_missing": {"flag": False, "reason": "Component, event and timing are all given."},
+    "check_panic": {"flag": False, "reason": "Tone is calm and factual."},
     "draft": {"briefing": "Propulsion anomaly reported; readings within limits."},
     "review": {"approved": True, "feedback": ""},
 }
