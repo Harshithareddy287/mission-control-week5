@@ -21,6 +21,8 @@ HIDDEN_REPORT = {
 }
 
 STEP_NAMES = ["limits", "classify", "brief_by", "check_injection", "check_missing", "check_panic"]
+# With the default fake reviewer approving, the briefing loop takes one round.
+PIPELINE_STEPS = STEP_NAMES + ["draft_1", "review_1"]
 
 
 def hostile_fake() -> FakeLLMClient:
@@ -119,10 +121,10 @@ async def test_note_cannot_close_its_tag():
 async def test_trace_has_one_entry_per_step_and_code_steps_are_free():
     result = await process_report(FakeLLMClient(), {**HIDDEN_REPORT, "wind_knots": 10})
     steps = {s["name"]: s for s in result["steps"]}
-    assert [s["name"] for s in result["steps"]] == STEP_NAMES
+    assert [s["name"] for s in result["steps"]] == PIPELINE_STEPS
     for name in ("limits", "brief_by"):
         assert (steps[name]["input_tokens"], steps[name]["output_tokens"], steps[name]["cost_usd"]) == (0, 0, 0)
-    for name in ("classify", "check_injection", "check_missing", "check_panic"):
+    for name in ("classify", "check_injection", "check_missing", "check_panic", "draft_1", "review_1"):
         assert (steps[name]["input_tokens"], steps[name]["output_tokens"]) == (100, 50)
     assert result["total_cost"] == pytest.approx(sum(s["cost_usd"] for s in result["steps"]))
 
@@ -140,7 +142,7 @@ def test_api_hidden_instruction_report(tmp_path, monkeypatch):
     assert body["violations"] == ["wind_knots 30 exceeds max 25"]
     assert body["needs_review"] is True
     assert body["checks"]["injection"]["flag"] is True
-    assert [s["name"] for s in body["steps"]] == STEP_NAMES
+    assert [s["name"] for s in body["steps"]] == PIPELINE_STEPS
     assert body["total_cost"] > 0
 
     # Saved: GET returns the same results, including trace steps, after a restart.

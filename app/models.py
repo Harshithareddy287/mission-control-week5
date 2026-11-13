@@ -8,6 +8,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, Field, StringConstraints
 
 NOTE_MAX_LENGTH = 2000
+APPROVER_MAX_LENGTH = 100
 
 # field -> (min, max) sanity bounds; also used to build error messages.
 RANGES = {
@@ -24,6 +25,8 @@ FIELD_LABELS = {
     "wind_knots": "Wind (knots)",
     "temp_c": "Temperature (°C)",
     "fuel_pct": "Fuel (%)",
+    "approver_name": "Approver name",
+    "briefing_id": "Briefing id",
 }
 
 RequiredText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -60,6 +63,29 @@ class StepOut(BaseModel):
     summary: str
 
 
+class ApprovalIn(BaseModel):
+    approver_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=APPROVER_MAX_LENGTH)
+    ]
+
+
+class ApprovalOut(BaseModel):
+    approver_name: str
+    approved_at: str
+
+
+class BriefingOut(BaseModel):
+    id: int
+    report_id: int
+    text: str
+    status: Literal["pending", "approved"]
+    rounds: int
+    review_passed: bool
+    review_exhausted: bool
+    needs_review: bool
+    approval: Optional[ApprovalOut] = None
+
+
 class ReportOut(ReportIn):
     id: int
     created_at: str
@@ -74,3 +100,4 @@ class ReportOut(ReportIn):
     needs_review: Optional[bool] = None
     total_cost: Optional[float] = None
     steps: list[StepOut] = []
+    briefing: Optional[BriefingOut] = None

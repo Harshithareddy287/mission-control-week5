@@ -10,8 +10,9 @@ RANGE_ERRORS = {"greater_than_equal", "less_than_equal", "greater_than", "less_t
 
 
 def _field_of(loc) -> str:
-    # loc looks like ("body", "wind_knots"); a whole-body problem is ("body",).
-    parts = [str(p) for p in loc if p != "body"]
+    # loc looks like ("body", "wind_knots") or ("path", "briefing_id");
+    # a whole-body problem is ("body",).
+    parts = [str(p) for p in loc if p not in ("body", "path", "query")]
     return parts[0] if parts else "body"
 
 
@@ -30,7 +31,10 @@ def _message(field: str, err: dict) -> str:
     if kind == "string_too_short":
         return f"{label} cannot be empty."
     if kind == "string_too_long":
-        return f"{label} must be at most {NOTE_MAX_LENGTH} characters."
+        limit = (err.get("ctx") or {}).get("max_length", NOTE_MAX_LENGTH)
+        return f"{label} must be at most {limit} characters."
+    if kind in ("int_parsing", "int_type") and err.get("loc", ("",))[0] == "path":
+        return f"{label} must be a whole number."
     if kind == "string_type":
         return f"{label} must be text."
     if kind in NUMBER_ERRORS:

@@ -2,25 +2,43 @@
 import asyncio
 import json
 from collections import defaultdict, deque
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 from app.llm.base import LLMResult
 
-Reply = Union[str, dict, list]
+# A reply is returned as-is (str), sent as JSON (dict/list), or computed from the
+# prompt (callable(system, user) -> str | dict | list).
+Reply = Union[str, dict, list, Callable[[str, str], Union[str, dict, list]]]
 
-# Default reply per pipeline step. Steps after classify are provisional until
-# their own feature step defines the real schema.
+
+def default_draft(system: str, user: str) -> str:
+    """Plain-text briefing built from the code FACTS block in the draft prompt."""
+    lines = user.splitlines()
+    try:
+        start = lines.index("FACTS (computed by code; restate exactly):") + 1
+    except ValueError:
+        return "Briefing unavailable."
+    facts = []
+    for line in lines[start:]:
+        if not line.strip():
+            break
+        facts.append(line)
+    return "\n".join(facts)
+
+
 DEFAULT_REPLIES: dict[str, Reply] = {
     "classify": {"subsystem": "propulsion", "severity": "medium"},
     "check_injection": {"flag": False, "reason": "No instructions to the system found."},
     "check_missing": {"flag": False, "reason": "Component, event and timing are all given."},
     "check_panic": {"flag": False, "reason": "Tone is calm and factual."},
-    "draft": {"briefing": "Propulsion anomaly reported; readings within limits."},
-    "review": {"approved": True, "feedback": ""},
+    "draft": default_draft,
+    "review": {"approved": True, "feedback": "Clear, brief and the verdict matches."},
 }
 
 
-def _as_text(reply: Reply) -> str:
+def _as_text(reply: Reply, system: str, user: str) -> str:
+    if callable(reply):
+        reply = reply(system, user)
     return reply if isinstance(reply, str) else json.dumps(reply)
 
 
@@ -37,7 +55,7 @@ class FakeLLMClient:
         replies: per-step queues; each call to that step pops the next reply,
                  falling back to DEFAULT_REPLIES once the queue is empty.
                  A str is returned verbatim (use it to send garbage), a dict/list
-                 is sent as JSON.
+                 is sent as JSON, a callable is called with (system, user).
         delay:   seconds to asyncio.sleep in every call (for concurrency tests).
         """
         self._queues: dict[str, deque] = defaultdict(deque)
@@ -63,7 +81,7 @@ class FakeLLMClient:
         queue = self._queues.get(step)
         reply = queue.popleft() if queue else DEFAULT_REPLIES.get(step, {})
         return LLMResult(
-            text=_as_text(reply),
+            text=_as_text(reply, system, user),
             input_tokens=self.INPUT_TOKENS,
             output_tokens=self.OUTPUT_TOKENS,
         )
