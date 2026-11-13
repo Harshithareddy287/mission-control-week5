@@ -1,4 +1,4 @@
-"""Report pipeline: limits -> classify -> brief_by -> checks.
+"""Report pipeline: limits -> classify -> brief_by -> checks -> draft/review.
 
 The verdict and violations come ONLY from app.rules.evaluate_limits, which runs
 first. They are stored as immutable values and never re-read from, or changed
@@ -9,12 +9,15 @@ from typing import Any, Mapping, Union
 
 from pydantic import BaseModel
 
+from app.briefing import draft_and_review
 from app.checks import run_checks
 from app.classify import classify
 from app.cost import report_cost, step_cost
 from app.llm.base import LLMClient
 from app.prompts import report_fields
 from app.rules import brief_by_minutes, evaluate_limits
+
+PENDING = "pending"  # the only briefing status the pipeline ever sets
 
 
 def _ms_since(start: float) -> float:
@@ -74,6 +77,31 @@ async def process_report(
     # e. Hidden instructions send the report to human review. Verdict untouched.
     needs_review = checks["injection"]["flag"]
 
+    # f. Draft + review loop (model). The briefing is always saved as pending:
+    #    only a person can approve it (POST /api/briefings/{id}/approve).
+    loop = await draft_and_review(client, {
+        "report": r,
+        "verdict": verdict,
+        "violations": list(violations),
+        "classification": {
+            "subsystem": classification.subsystem,
+            "severity": classification.severity,
+            "fallback": fallback,
+        },
+        "brief_by": brief_by,
+        "checks": checks,
+        "needs_review": needs_review,
+    })
+    trace.extend(loop["trace"])
+    briefing = {
+        "text": loop["final_text"],
+        "status": PENDING,
+        "rounds": loop["rounds_used"],
+        "review_passed": loop["review_passed"],
+        "review_exhausted": not loop["review_passed"],  # all MAX_ROUNDS rounds failed
+        "needs_review": needs_review,
+    }
+
     return {
         "verdict": verdict,
         "violations": list(violations),
@@ -85,4 +113,5 @@ async def process_report(
         "needs_review": needs_review,
         "total_cost": report_cost(trace),
         "steps": trace,
+        "briefing": briefing,
     }

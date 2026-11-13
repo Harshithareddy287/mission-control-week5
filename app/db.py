@@ -44,6 +44,24 @@ CREATE TABLE IF NOT EXISTS steps (
     summary       TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS steps_report_id ON steps(report_id);
+
+CREATE TABLE IF NOT EXISTS briefings (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_id        INTEGER NOT NULL UNIQUE REFERENCES reports(id),
+    text             TEXT    NOT NULL,
+    status           TEXT    NOT NULL CHECK (status IN ('pending', 'approved')),
+    rounds           INTEGER NOT NULL,
+    review_passed    INTEGER NOT NULL,
+    review_exhausted INTEGER NOT NULL,
+    needs_review     INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS approvals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    briefing_id   INTEGER NOT NULL UNIQUE REFERENCES briefings(id),
+    approver_name TEXT    NOT NULL,
+    approved_at   TEXT    NOT NULL
+);
 """
 
 REPORT_COLUMNS = ("id", "name", "station", "wind_knots", "temp_c", "fuel_pct", "note", "created_at")
@@ -60,7 +78,18 @@ EMPTY_RESULTS = {
     "needs_review": None,
     "total_cost": None,
     "steps": [],
+    "briefing": None,
 }
+
+BRIEFING_COLUMNS = (
+    "id", "report_id", "text", "status", "rounds",
+    "review_passed", "review_exhausted", "needs_review",
+)
+BRIEFING_BOOLS = ("review_passed", "review_exhausted", "needs_review")
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def db_path_from_env() -> str:
@@ -82,7 +111,7 @@ def init_db(path: str) -> None:
 
 
 def insert_report(path: str, data: dict) -> int:
-    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    created_at = _now()
     conn = connect(path)
     try:
         with conn:
@@ -131,8 +160,78 @@ def save_results(path: str, report_id: int, results: dict) -> None:
                 f" VALUES (?, {', '.join('?' * len(STEP_COLUMNS))})",
                 [(report_id, *(s[c] for c in STEP_COLUMNS)) for s in results["steps"]],
             )
+            b = results.get("briefing")
+            if b is not None:
+                conn.execute(
+                    # status is hard-coded: a new briefing is always pending.
+                    "INSERT INTO briefings (report_id, text, status, rounds, review_passed,"
+                    " review_exhausted, needs_review) VALUES (?, ?, 'pending', ?, ?, ?, ?)",
+                    (
+                        report_id,
+                        b["text"],
+                        b["rounds"],
+                        int(b["review_passed"]),
+                        int(b["review_exhausted"]),
+                        int(b["needs_review"]),
+                    ),
+                )
     finally:
         conn.close()
+
+
+class BriefingNotFound(Exception):
+    pass
+
+
+class BriefingNotPending(Exception):
+    pass
+
+
+def approve_briefing(path: str, briefing_id: int, approver_name: str) -> dict:
+    """Record a person's approval. The only code path that sets status 'approved'.
+
+    The conditional UPDATE makes this atomic: of two concurrent approvals,
+    exactly one succeeds and the other gets BriefingNotPending.
+    """
+    conn = connect(path)
+    try:
+        with conn:
+            cur = conn.execute(
+                "UPDATE briefings SET status = 'approved' WHERE id = ? AND status = 'pending'",
+                (briefing_id,),
+            )
+            if cur.rowcount == 0:
+                exists = conn.execute(
+                    "SELECT 1 FROM briefings WHERE id = ?", (briefing_id,)
+                ).fetchone()
+                raise BriefingNotPending() if exists else BriefingNotFound()
+            conn.execute(
+                "INSERT INTO approvals (briefing_id, approver_name, approved_at) VALUES (?, ?, ?)",
+                (briefing_id, approver_name, _now()),
+            )
+        return _load_briefings(conn, "b.id = ?", (briefing_id,))[0]
+    finally:
+        conn.close()
+
+
+def _load_briefings(conn: sqlite3.Connection, where: str, params) -> list[dict]:
+    cols = ", ".join(f"b.{c}" for c in BRIEFING_COLUMNS)
+    rows = conn.execute(
+        f"SELECT {cols}, a.approver_name, a.approved_at FROM briefings b"
+        f" LEFT JOIN approvals a ON a.briefing_id = b.id WHERE {where}",
+        params,
+    ).fetchall()
+    out = []
+    for row in rows:
+        b = {c: row[c] for c in BRIEFING_COLUMNS}
+        for c in BRIEFING_BOOLS:
+            b[c] = bool(b[c])
+        b["approval"] = (
+            {"approver_name": row["approver_name"], "approved_at": row["approved_at"]}
+            if row["approver_name"] is not None else None
+        )
+        out.append(b)
+    return out
 
 
 def _results_from_row(row: sqlite3.Row) -> dict:
@@ -169,6 +268,11 @@ def _load(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list
     ):
         steps[s["report_id"]].append({c: s[c] for c in STEP_COLUMNS})
 
+    briefings = {
+        b["report_id"]: b
+        for b in _load_briefings(conn, f"b.report_id IN ({', '.join('?' * len(ids))})", ids)
+    }
+
     reports = []
     for row in rows:
         report = {c: row[c] for c in REPORT_COLUMNS}
@@ -176,6 +280,7 @@ def _load(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list
             report.update(EMPTY_RESULTS, steps=[])
         else:
             report.update(_results_from_row(row), steps=steps[row["id"]])
+        report["briefing"] = briefings.get(row["id"])
         reports.append(report)
     return reports
 
