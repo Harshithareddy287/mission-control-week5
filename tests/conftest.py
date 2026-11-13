@@ -1,8 +1,11 @@
 import os, socket, tempfile
 import pytest
 
+# Never load the developer's .env during tests (it would re-add a real key).
+os.environ["MISSION_CONTROL_SKIP_DOTENV"] = "1"
 os.environ["LLM_PROVIDER"] = "fake"
 os.environ.pop("OPENAI_API_KEY", None)
+os.environ.pop("OPENAI_BASE_URL", None)
 # Keep the module-level `app` (imported by some tests) off the real database file.
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="mc-tests-"), "session.db")
 
