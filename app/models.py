@@ -3,7 +3,7 @@
 The numeric bounds here are input sanity checks (rejecting impossible readings),
 NOT launch limits. Launch limits live only in app/rules.py.
 """
-from typing import Annotated
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -46,6 +46,31 @@ class ReportIn(BaseModel):
     fuel_pct: float = _bounded("fuel_pct")
 
 
+class CheckOut(BaseModel):
+    flag: bool
+    reason: str
+
+
+class StepOut(BaseModel):
+    name: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+    duration_ms: float
+    summary: str
+
+
 class ReportOut(ReportIn):
     id: int
     created_at: str
+    # Pipeline results; None/empty only if a report was saved without them.
+    verdict: Optional[Literal["go", "no_go"]] = None
+    violations: list[str] = []
+    subsystem: Optional[str] = None
+    severity: Optional[str] = None
+    classification_fallback: Optional[bool] = None
+    brief_by: Optional[int] = None
+    checks: Optional[dict[str, CheckOut]] = None
+    needs_review: Optional[bool] = None
+    total_cost: Optional[float] = None
+    steps: list[StepOut] = []
