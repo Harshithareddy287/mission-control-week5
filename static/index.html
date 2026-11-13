@@ -1,3 +1,72 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Mission Control</title></head>
-<body><h1>Mission Control</h1><p>Go/No-Go Launch Console</p></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mission Control</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Mission Control</h1>
+    <p class="subtitle">Go/No-Go Launch Console</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>File a report</h2>
+      <form id="report-form" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" autocomplete="name">
+          <p class="error" data-error-for="name"></p>
+        </div>
+
+        <div class="field">
+          <label for="station">Station</label>
+          <input id="station" name="station" type="text">
+          <p class="error" data-error-for="station"></p>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="wind_knots">Wind (knots)</label>
+            <input id="wind_knots" name="wind_knots" type="number" step="any" inputmode="decimal">
+            <p class="error" data-error-for="wind_knots"></p>
+          </div>
+          <div class="field">
+            <label for="temp_c">Temperature (°C)</label>
+            <input id="temp_c" name="temp_c" type="number" step="any" inputmode="decimal">
+            <p class="error" data-error-for="temp_c"></p>
+          </div>
+          <div class="field">
+            <label for="fuel_pct">Fuel (%)</label>
+            <input id="fuel_pct" name="fuel_pct" type="number" step="any" inputmode="decimal">
+            <p class="error" data-error-for="fuel_pct"></p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="note">Note</label>
+          <textarea id="note" name="note" rows="4" maxlength="2000"></textarea>
+          <p class="error" data-error-for="note"></p>
+        </div>
+
+        <p class="error form-error" data-error-for="body"></p>
+        <div class="actions">
+          <button id="submit" type="submit">File report</button>
+          <span id="status" class="status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Saved reports</h2>
+      <p id="empty" class="muted">No reports yet.</p>
+      <ul id="reports" class="reports"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
