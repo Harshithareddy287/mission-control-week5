@@ -6,4 +6,4 @@
 - Write tests for every feature in tests/. Run `pytest -q` after changes and fix failures before committing.
 - Front end: render user or model text with textContent, never innerHTML.
 - README keeps exactly two commands: start `uvicorn app.main:app --reload`, test `pytest`.
-- Git workflow: one feature branch per step, conventional commit messages, push and open a PR with `gh pr create`. Never commit directly to main.
+- Do NOT run any git commands (no branch, add, commit, push or PR). The developer handles all git operations. Only write code and run pytest.
