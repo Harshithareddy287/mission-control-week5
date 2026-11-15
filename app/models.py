@@ -27,6 +27,7 @@ FIELD_LABELS = {
     "fuel_pct": "Fuel (%)",
     "approver_name": "Approver name",
     "briefing_id": "Briefing id",
+    "report_id": "Report id",
 }
 
 RequiredText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -86,18 +87,41 @@ class BriefingOut(BaseModel):
     approval: Optional[ApprovalOut] = None
 
 
+class ClassificationOut(BaseModel):
+    subsystem: str
+    severity: str
+    fallback: bool
+
+
+Verdict = Optional[Literal["go", "no_go"]]
+
+
 class ReportOut(ReportIn):
+    """Full report (POST /api/reports, GET /api/reports/{id})."""
     id: int
     created_at: str
     # Pipeline results; None/empty only if a report was saved without them.
-    verdict: Optional[Literal["go", "no_go"]] = None
+    verdict: Verdict = None
     violations: list[str] = []
-    subsystem: Optional[str] = None
-    severity: Optional[str] = None
-    classification_fallback: Optional[bool] = None
+    classification: Optional[ClassificationOut] = None
     brief_by: Optional[int] = None
     checks: Optional[dict[str, CheckOut]] = None
     needs_review: Optional[bool] = None
-    total_cost: Optional[float] = None
-    steps: list[StepOut] = []
     briefing: Optional[BriefingOut] = None
+    steps: list[StepOut] = []
+    total_cost: float = 0.0  # report_cost(steps), computed in Python
+
+
+class ReportSummary(BaseModel):
+    """One row of GET /api/reports."""
+    id: int
+    name: str
+    station: str
+    created_at: str
+    verdict: Verdict = None
+    severity: Optional[str] = None
+    subsystem: Optional[str] = None
+    brief_by: Optional[int] = None
+    briefing_status: Optional[Literal["pending", "approved"]] = None
+    needs_review: Optional[bool] = None
+    total_cost: float = 0.0

@@ -40,8 +40,10 @@ def test_post_report_all_fields_saved(client):
     for key in ("station", "wind_knots", "temp_c", "fuel_pct", "note"):
         assert created[key] == VALID[key]
 
+    assert client.get(f"/api/reports/{created['id']}").json() == created
     listed = client.get("/api/reports").json()
-    assert listed == [created]
+    assert [r["id"] for r in listed] == [created["id"]]
+    assert (listed[0]["name"], listed[0]["station"]) == ("Ada Lovelace", VALID["station"])
 
 
 def test_bad_input_rejected_with_message(client):
@@ -100,6 +102,8 @@ def test_reports_survive_restart(db_file):
     del app1
 
     app2 = create_app()
-    listed = TestClient(app2).get("/api/reports").json()
-    assert listed == [created]
+    client2 = TestClient(app2)
+    listed = client2.get("/api/reports").json()
+    assert [r["id"] for r in listed] == [created["id"]]
+    assert client2.get(f"/api/reports/{created['id']}").json() == created
     assert db_file.exists()

@@ -4,6 +4,8 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 
+from app.cost import report_cost
+
 DEFAULT_DB_PATH = "mission_control.db"
 
 SCHEMA = """
@@ -70,16 +72,16 @@ STEP_COLUMNS = ("name", "input_tokens", "output_tokens", "cost_usd", "duration_m
 EMPTY_RESULTS = {
     "verdict": None,
     "violations": [],
-    "subsystem": None,
-    "severity": None,
-    "classification_fallback": None,
+    "classification": None,
     "brief_by": None,
     "checks": None,
     "needs_review": None,
-    "total_cost": None,
-    "steps": [],
-    "briefing": None,
 }
+
+SUMMARY_KEYS = (
+    "id", "name", "station", "created_at", "verdict", "brief_by",
+    "needs_review", "total_cost",
+)
 
 BRIEFING_COLUMNS = (
     "id", "report_id", "text", "status", "rounds",
@@ -238,13 +240,14 @@ def _results_from_row(row: sqlite3.Row) -> dict:
     return {
         "verdict": row["verdict"],
         "violations": json.loads(row["violations"]),
-        "subsystem": row["subsystem"],
-        "severity": row["severity"],
-        "classification_fallback": bool(row["classification_fallback"]),
+        "classification": {
+            "subsystem": row["subsystem"],
+            "severity": row["severity"],
+            "fallback": bool(row["classification_fallback"]),
+        },
         "brief_by": row["brief_by"],
         "checks": json.loads(row["checks"]),
         "needs_review": bool(row["needs_review"]),
-        "total_cost": row["total_cost"],
     }
 
 
@@ -277,12 +280,27 @@ def _load(conn: sqlite3.Connection, where: str = "", params: tuple = ()) -> list
     for row in rows:
         report = {c: row[c] for c in REPORT_COLUMNS}
         if row["report_id"] is None:  # filed but pipeline results not saved
-            report.update(EMPTY_RESULTS, steps=[])
+            report.update(EMPTY_RESULTS)
         else:
-            report.update(_results_from_row(row), steps=steps[row["id"]])
+            report.update(_results_from_row(row))
+        report["steps"] = steps[row["id"]]
+        # Always derived from the saved steps, in Python, so it can't drift from the trace.
+        report["total_cost"] = report_cost(report["steps"])
         report["briefing"] = briefings.get(row["id"])
         reports.append(report)
     return reports
+
+
+def summarize(report: dict) -> dict:
+    """List-view item: the fields the console list shows."""
+    c = report["classification"] or {}
+    b = report["briefing"] or {}
+    return {
+        **{k: report[k] for k in SUMMARY_KEYS},
+        "subsystem": c.get("subsystem"),
+        "severity": c.get("severity"),
+        "briefing_status": b.get("status"),
+    }
 
 
 def get_report(path: str, report_id: int) -> dict | None:
@@ -295,8 +313,9 @@ def get_report(path: str, report_id: int) -> dict | None:
 
 
 def list_reports(path: str) -> list[dict]:
+    """Newest first, as list-view summaries."""
     conn = connect(path)
     try:
-        return _load(conn)
+        return [summarize(r) for r in _load(conn)]
     finally:
         conn.close()
