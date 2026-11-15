@@ -147,4 +147,5 @@ def test_api_hidden_instruction_report(tmp_path, monkeypatch):
 
     # Saved: GET returns the same results, including trace steps, after a restart.
     restarted = TestClient(create_app())
-    assert restarted.get("/api/reports").json() == [body]
+    assert restarted.get(f"/api/reports/{body['id']}").json() == body
+    assert [r["id"] for r in restarted.get("/api/reports").json()] == [body["id"]]

@@ -190,7 +190,8 @@ def test_briefing_in_post_and_get(api):
     assert "NO_GO" in b["text"]
     assert {"text", "status", "rounds", "review_passed", "review_exhausted",
             "needs_review", "approval"} <= set(b)
-    assert api.get("/api/reports").json() == [body]
+    assert api.get(f"/api/reports/{body['id']}").json() == body
+    assert api.get("/api/reports").json()[0]["briefing_status"] == "pending"
 
 
 def test_approve_once_then_409(api):
@@ -208,7 +209,9 @@ def test_approve_once_then_409(api):
     assert again.json()["errors"][0]["field"] == "status"
 
     # The first approval is the one saved, and GET reflects it after a restart.
-    saved = TestClient(create_app()).get("/api/reports").json()[0]["briefing"]
+    restarted = TestClient(create_app())
+    assert restarted.get("/api/reports").json()[0]["briefing_status"] == "approved"
+    saved = restarted.get(f"/api/reports/{approved['report_id']}").json()["briefing"]
     assert saved["status"] == "approved"
     assert saved["approval"]["approver_name"] == "Gene Kranz"
 
@@ -219,7 +222,7 @@ def test_approve_needs_a_name(api, body):
     r = api.post(f"/api/briefings/{briefing_id}/approve", json=body)
     assert r.status_code == 422
     assert r.json()["errors"][0]["field"] == "approver_name"
-    assert api.get("/api/reports").json()[0]["briefing"]["status"] == "pending"
+    assert api.get("/api/reports").json()[0]["briefing_status"] == "pending"
 
 
 def test_approve_unknown_id_is_404(api):

@@ -29,7 +29,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or None
 # TODO: copy the real gpt-6-sol prices from the provider's pricing page.
 # These are placeholders so cost maths can be built and tested.
 INPUT_PRICE_PER_1M = 2.00
-OUTPUT_PRICE_PER_1M = 8.00
+OUTPUT_PRICE_PER_1M = 10.00
 
 
 def llm_provider() -> str:

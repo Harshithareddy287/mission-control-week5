@@ -7,63 +7,75 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    <h1>Mission Control</h1>
-    <p class="subtitle">Go/No-Go Launch Console</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1>Mission Control</h1>
+      <p class="subtitle">Go/No-Go Launch Console</p>
+    </div>
   </header>
 
-  <main>
-    <section class="card">
-      <h2>File a report</h2>
-      <form id="report-form" novalidate>
-        <div class="field">
-          <label for="name">Name</label>
-          <input id="name" name="name" type="text" autocomplete="name">
-          <p class="error" data-error-for="name"></p>
-        </div>
-
-        <div class="field">
-          <label for="station">Station</label>
-          <input id="station" name="station" type="text">
-          <p class="error" data-error-for="station"></p>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label for="wind_knots">Wind (knots)</label>
-            <input id="wind_knots" name="wind_knots" type="number" step="any" inputmode="decimal">
-            <p class="error" data-error-for="wind_knots"></p>
+  <main class="layout">
+    <aside class="side">
+      <section class="card">
+        <h2>File a report</h2>
+        <form id="report-form" novalidate>
+          <div class="row">
+            <div class="field">
+              <label for="name">Name</label>
+              <input id="name" name="name" type="text" autocomplete="name">
+              <p class="error" data-error-for="name"></p>
+            </div>
+            <div class="field">
+              <label for="station">Station</label>
+              <input id="station" name="station" type="text">
+              <p class="error" data-error-for="station"></p>
+            </div>
           </div>
-          <div class="field">
-            <label for="temp_c">Temperature (°C)</label>
-            <input id="temp_c" name="temp_c" type="number" step="any" inputmode="decimal">
-            <p class="error" data-error-for="temp_c"></p>
+
+          <div class="row">
+            <div class="field">
+              <label for="wind_knots">Wind (knots)</label>
+              <input id="wind_knots" name="wind_knots" type="number" step="any" inputmode="decimal">
+              <p class="error" data-error-for="wind_knots"></p>
+            </div>
+            <div class="field">
+              <label for="temp_c">Temp (°C)</label>
+              <input id="temp_c" name="temp_c" type="number" step="any" inputmode="decimal">
+              <p class="error" data-error-for="temp_c"></p>
+            </div>
+            <div class="field">
+              <label for="fuel_pct">Fuel (%)</label>
+              <input id="fuel_pct" name="fuel_pct" type="number" step="any" inputmode="decimal">
+              <p class="error" data-error-for="fuel_pct"></p>
+            </div>
           </div>
+
           <div class="field">
-            <label for="fuel_pct">Fuel (%)</label>
-            <input id="fuel_pct" name="fuel_pct" type="number" step="any" inputmode="decimal">
-            <p class="error" data-error-for="fuel_pct"></p>
+            <label for="note">Note</label>
+            <textarea id="note" name="note" rows="3" maxlength="2000"></textarea>
+            <p class="error" data-error-for="note"></p>
           </div>
-        </div>
 
-        <div class="field">
-          <label for="note">Note</label>
-          <textarea id="note" name="note" rows="4" maxlength="2000"></textarea>
-          <p class="error" data-error-for="note"></p>
-        </div>
+          <p class="error form-error" data-error-for="body"></p>
+          <div class="actions">
+            <button id="submit" type="submit">File report</button>
+            <span id="status" class="status" role="status"></span>
+          </div>
+        </form>
+      </section>
 
-        <p class="error form-error" data-error-for="body"></p>
-        <div class="actions">
-          <button id="submit" type="submit">File report</button>
-          <span id="status" class="status" role="status"></span>
+      <section class="card">
+        <div class="card-head">
+          <h2>Reports</h2>
+          <span id="report-count" class="muted"></span>
         </div>
-      </form>
-    </section>
+        <p id="empty" class="muted">No reports yet.</p>
+        <ul id="reports" class="report-list"></ul>
+      </section>
+    </aside>
 
-    <section class="card">
-      <h2>Saved reports</h2>
-      <p id="empty" class="muted">No reports yet.</p>
-      <ul id="reports" class="reports"></ul>
+    <section id="detail" class="card detail" aria-live="polite">
+      <p class="muted placeholder">Select a report to see its briefing, verdict and trace.</p>
     </section>
   </main>
 
