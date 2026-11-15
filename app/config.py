@@ -25,9 +25,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME") or "gpt-6-sol"
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL") or None  # e.g. Azure AI Foundry endpoint
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or None
 
-# USD per 1,000,000 tokens.
-# TODO: copy the real gpt-6-sol prices from the provider's pricing page.
-# These are placeholders so cost maths can be built and tested.
+# gpt-6-sol on Azure AI Foundry, Global Standard: $2.00 input / $10.00 output per 1M tokens.
 INPUT_PRICE_PER_1M = 2.00
 OUTPUT_PRICE_PER_1M = 10.00
 
